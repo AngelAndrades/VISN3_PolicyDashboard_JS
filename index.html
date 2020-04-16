@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <link rel="stylesheet" href="https://kendo.cdn.telerik.com/2019.3.1023/styles/kendo.bootstrap-v4.min.css" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://kendo.cdn.telerik.com/2019.3.1023/js/jszip.min.js"></script>
+    <script src="https://kendo.cdn.telerik.com/2019.3.1023/js/kendo.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <style>
+        /*#s4-titlerow, #pageContentTitle, #titlerow {
+            display: none !important;
+        }*/
+
+        .ms-core-pageTitle {
+            font-size: 2em !important;
+        }
+
+        .contentwrapper {
+            margin: 0 !important;
+        }
+
+        .ms-pub-contentLayout {
+            padding: 0 !important;
+            margin-top: 0 !important;
+        }
+
+        .article-content {
+            margin: 0 !important;
+        }
+
+        .ms-core-listMenu-horizontalBox {
+            display: none !important;
+        }
+
+        div.article {
+            padding: 0px;
+        }
+
+        html, body {
+            height: 100% !important;
+            min-height: 100%;
+        }
+
+        .fill {
+            min-height: 100%;
+            height: 80vh;
+        }
+
+        .nav-item {
+            line-height: 500%;
+        }
+
+        h1 {
+            line-height: 200%
+        }
+
+        .nav-area {
+            background-color: #35373d;
+        }
+
+        .nav-area > ul > li {
+            color: #b8bbc2;
+            border-bottom: 1px solid #4a4b51;
+        }
+
+        .nav-area > ul > li:hover {
+            background-color: #212329;
+        }
+
+        .active {
+            background-color: #0d1016;
+        }
+
+        #content_area > div:not(:first-child) {
+            display: none;
+        }
+
+        .k-edit-form-container {
+            width: 600px;
+        }
+
+        .k-edit-label {
+            width: 30%;
+            margin: 0;
+        }
+
+        .highlight { 
+            color: #af0000 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container-fluid pt-1">
+        <div id="_message"></div>
+        <div class="m-2" aria-hidden="true"></div>
+        <div id="content_area">
+            <div id="app_content" class="pt-3 pb-3">
+                <div id="app_chart" style="height: 250px;"></div>
+                <div class="m-2" aria-hidden="true"></div>
+                <div id="app_grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function (vaApp,$,undefined) {
+            vaApp.model = new kendo.observable({
+                // set the default digest value - required for post operations
+                _digest: $('#__REQUESTDIGEST').val(),
+
+                // relative url
+                _siteUrl: _spPageContextInfo.webServerRelativeUrl,
+
+                // chart colors
+                palette: ["#660000", "#95c3cd", "#abc75b", "#c6816f", "#968cb2", "#c0c0c0", "#2ba6ff"],
+
+                // Date
+                today: new Date(),
+
+                // document library
+                _spDocLibArg: '?$filter=FSObjType%20eq%200&$select=Id,Title,Policy_x0020_No_x002e_,Expiration_x0020_Date0,FileRef,POC/Title,POC/EMail&$expand=POC&$top=1000',
+                spDocLibUrl: function () {
+                    return this.get('_siteUrl') + "/_api/web/lists/getbytitle('" + this.get('spDocTitle') + "')/items" + this.get('_spDocLibArg');
+                }
+            });
+
+            vaApp.init = () =>
+            {
+                vaApp.model.datasource = new kendo.data.DataSource({
+                    transport: {
+                        read: function (options) {
+                            cache: false,
+                            Lib.readData(function (response) {
+                                if (options.success.length > 0) options.success(response);
+
+                                var _30 = 0, _60 = 0, _90 = 0, _120 = 0, _expired = 0;
+                                vaApp.model.gridData = [];
+                                vaApp.model.chartDS = [];
+                                
+                                $.each(response, function (idx, val) {
+                                        var item = new Object();
+                                        item['Id'] = val.Id;
+                                        item['Title'] = val.FileRef.substring(val.FileRef.lastIndexOf('/')+1,val.FileRef.lastIndexOf('.'));
+                                        item['FileRef'] = val.FileRef;
+                                        item['Category'] = val.FileRef.split('/')[5];
+                                        item['PolicyNumber'] = val.Policy_x0020_No_x002e_;
+                                        item['RescissionDate'] = val.Expiration_x0020_Date0;
+                                        if (val.POC !== undefined) {
+                                            item['POC'] = val.POC.Title;
+                                            item['Email'] = val.POC.EMail;
+                                        } else  {
+                                            item['POC'] = '';
+                                            item['Email'] = '';
+                                        }
+
+                                        var days = Utils.convertToDays(val.Expiration_x0020_Date0);
+                                        switch (true)
+                                        {
+                                            case (days <= 0):
+                                                item['DueIn'] = 0;
+                                                _expired++;
+                                                break;
+                                            case (days <= 30):
+                                                item['DueIn'] = 30;
+                                                _30++;
+                                                break;
+                                            case (days <= 60):
+                                                item['DueIn'] = 60;
+                                                _60++;
+                                                break;
+                                            case (days <= 90):
+                                                item['DueIn'] = 90;
+                                                _90++;
+                                                break;
+                                            default:
+                                                item['DueIn'] = 120;
+                                                _120++;
+                                        }
+
+                                        vaApp.model.gridData.push(item);
+                                });
+
+                                var total = _expired +_30 + _60 + _90 + _120;
+                                vaApp.model.chartDS = new kendo.data.DataSource({ 
+                                    data: [ 
+                                        { caption: 'Expired', elapsed: _expired },
+                                        { caption: '30 Days', elapsed: _30 },
+                                        { caption: '60 Days', elapsed: _60 },
+                                        { caption: '90 Days', elapsed: _90 },
+                                        { caption: '120 Days', elapsed: _120 },
+                                        { caption: 'Total', summary: 'total' }, 
+                                    ]
+                                });
+                                
+                                $('#app_grid').data('kendoGrid').setDataSource(new kendo.data.DataSource({ 
+                                    data: vaApp.model.gridData,
+                                    pageSize: 5,
+                                    sort: { field: 'Title', dir: 'asc' }
+                                }));
+                                $("#app_chart").data("kendoChart").setDataSource(vaApp.model.chartDS);
+                            }, vaApp.model.spDocLibUrl());
+                        }
+                    },
+                    error: function (e) {
+                        Utils.showMessage('Error: Accessing ' + vaApp.model.spDocTitle,'There was a communication error with SharePoint reading ' + vaApp.model.spDocTitle + ' document library. See the console log for more details...');
+                        console.log(e);
+                    },
+                    sort: { field: 'Title', dir: 'asc' }
+                });
+                vaApp.model.datasource.read();
+            }
+
+            vaApp.render = () =>
+            {
+                // define empty Kendo Window widget - used for messaging
+                $('#_message').kendoWindow({
+                    width: 600,
+                    title: '',
+                    size: 'wide',
+                    visible: false,
+                    action: [ 'Close' ]
+                }).data('kendoWindow').center();
+
+                $("#app_chart").kendoChart({
+                    dataSource: [],
+                    //title: { text: 'Policy Status' },
+                    legend: { visible: false },
+                    series: [{
+                        type: 'horizontalWaterfall',
+                        field: 'elapsed',
+                        categoryField: 'caption',
+                        summaryField: 'summary',
+                        color: function(point) {
+                            return vaApp.model.palette[point.index % vaApp.model.palette.length];
+                        },
+                        labels: { visible: true }
+                    }],
+                    axisDefaults: {
+                        majorGridLines: { visible: false }
+                    },
+                    valueAxis: { 
+                        labels: { format: '{0}'} 
+                    },
+                    plotAreaClick: function(e) {
+                        if(e.category === 'Total') $('#app_grid').data('kendoGrid').dataSource.filter({});
+                        else $('#app_grid').data('kendoGrid').dataSource.filter({ field: 'DueIn', operator: 'eq', value: (e.category.split(' ')[0] === 'Expired' ? 0 : e.category.split(' ')[0]) });
+                    }
+                });
+
+                $('#app_grid').kendoGrid({
+                    toolbar: ['pdf', 'excel'],
+                    dataSource: [],
+                    scrollable: true,
+                    columnMenu: true,
+                    filterable: true,
+                    sortable: true,
+                    groupable: true,
+                    resizable: true,
+                    pageable: {
+                        pageSize: 5,
+                        buttonCount: 3,
+                        pageSizes: [5, 10, 25, 50, 'all'],
+                        messages: {
+                            display: 'Showing {0}-{1} from {2} policies',
+                            empty: 'No policies found.',
+                            itemsPerPage: 'policies per page'
+                        }
+                    },
+                    columns: [
+                        { field: 'Title', title: 'Policy', template: '<a href="#= FileRef #" title="link to #= Title #" target="_blank">#= Title #</a>' },
+                        { field: 'PolicyNumber', title: 'Policy #', width: '12%' },
+                        { field: 'Category', title: 'Category', width: '15%' },
+                        { field: 'RescissionDate', title: 'Rescission Date', template: '#= kendo.toString(kendo.parseDate(RescissionDate, "yyyy-MM-dd"), "MMM d, yyyy") #', width: '13%' },
+                        { field: 'DueIn', title: 'Due In', hidden: true, width: '10%' },
+                        { field: 'POC', title: 'Point of Contact', template: '<a href="mailto:#= Email #" title="send mail to #= POC #">#= POC #</a>'},
+                        { command: [{ name: 'notify', text: 'Notify POC', iconClass: 'k-icon k-i-email-box', click: Events.notify }], width: '175px' }
+                    ],
+                    dataBound: function(e) {
+                        // loop thru data items and apply row style if expired
+                        $.each(e.sender.dataSource.view(), function (idx, val) {
+                            var row = e.sender.tbody.find("[data-uid='" + val.uid + "']");
+                            if(Date.parse(val.RescissionDate) <= vaApp.model.today) row.addClass("highlight");
+                            if(val.POC === '') row.find('.k-button')[0].disabled = true;
+                        });
+
+                        $.each($(".k-grouping-row"), function (idx, val) {
+                            $('#app_grid').data('kendoGrid').collapseGroup(val);
+                        });
+                    }
+                });
+            }
+
+            // internal Ajax CRUD functions
+            Lib = {
+                readData: function (callback,url) {
+                    $.ajax({
+                        url: url,
+                        dataType: 'json',
+                        type: 'GET',
+                        async: true,
+                        headers: {
+                            'Accept': 'application/json;odata=nometadata',
+                            'Content-Type': 'application/json;odata=nometadata'
+                        },
+                        success: function (data) {
+                            callback(data.value);
+                        },
+                        error: function (xhr) {
+                            callback(xhr);
+                        }
+                    })
+                }
+            }
+
+            // internal utility functions
+            Utils = {
+                showMessage: function (title, message) {
+                    var displayMessage = $('#_message').data('kendoWindow');
+                    displayMessage.title(title);
+                    displayMessage.content(message);
+                    displayMessage.open();
+                },
+                getDigest: function () {
+                    $.ajax({
+                        url:  vaApp.model._siteUrl + '/_api/contextinfo',
+                        dataType: 'json',
+                        type: 'POST',
+                        async: true,
+                        headers: {
+                            'Accept': 'application/json;odata=verbose',
+                            'Content-Type': 'application/json;odata=verbose'
+                        },
+                        success: function (response) {
+                            vaApp.model.set('digest', response.d.GetContextWebInformation.FormDigestValue);
+                        },
+                        error: function (xhr) {
+                            Utils.showMessage('Error: Digest Request Failure','There was a communication error with SharePoint obtaining the request digest needed for POST operations. See the console log for more details...');
+                            console.log(xhr);
+                        }
+                    });
+                },
+                convertToDays: function (rescissionDate) {
+                    var aDay = 1000 * 60 * 60 * 24;
+                    return Math.round( ( Date.parse(rescissionDate) - vaApp.model.today.getTime() ) / aDay);
+                }
+            }
+
+            Events = {
+                notify: function (e) {
+                    var uid = $(e.currentTarget.parentElement.parentElement)[0].dataset.uid;
+                    var grid = $('#app_grid').data('kendoGrid');
+                    var dataItem = $(grid.dataItem('tr[data-uid=' + uid +']'))[0];
+
+                    var emailTo = [ dataItem.Email ];
+                    var emailFrom = 'donotreply@va.gov';
+                    var additionalInfo = 'Policy Name: ' + dataItem.Title + '<br />';
+                    additionalInfo += 'Link: <a href="' + window.location.origin + dataItem.FileRef + '">' + window.location.origin + dataItem.FileRef + '</a><br />';
+                    additionalInfo += 'Date Rescinded: ' + kendo.toString(kendo.parseDate(dataItem.RescissionDate, "yyyy-MM-dd"), "MMM d, yyyy") + '<br />'
+                    additionalInfo += '<br />Thank you.'
+
+                    $.ajax({  
+                        contentType: 'application/json',
+                        url: vaApp.model._siteUrl + '/_api/SP.Utilities.Utility.SendEmail',
+                        type: 'POST',
+                        data: JSON.stringify({
+                            'properties': {
+                                '__metadata': { 'type': 'SP.Utilities.EmailProperties' },
+                                'From': emailFrom,
+                                'To': { 'results': emailTo },
+                                'Subject': vaApp.model.emailSubject,
+                                'Body': vaApp.model.emailMessage + additionalInfo
+                            }
+                        }),  
+                        headers: {  
+                            'Accept': 'application/json;odata=verbose',
+                            'content-type': 'application/json;odata=verbose',
+                            'X-RequestDigest': vaApp.model._digest
+                        },  
+                        success: function (data) {  
+                            Utils.showMessage('Message Sent', 'The point of contact has been notified.');
+                        },  
+                        error: function (err) {  
+                            Utils.showMessage('Message Failed', 'SharePoint has experienced an issue sending email. See the JavaScript console for more details.');
+                            console.log(err);
+                        }  
+                    });  
+                }
+            }
+        }(window.vaApp = window.vaApp || {},jQuery));
+
+        $(function () {
+            vaApp.model.spDocTitle = 'Policies'
+            vaApp.model.emailMessage = '<p>You have been identified as the point of contact for the following policy listed below. The policy is reaching/has reached its rescission date. Update the policy as necessary and submit it through the predefined approval process so a revised policy can be posted on our Intranet.</p>';
+            vaApp.model.emailSubject = 'RE: Rescinded Policy';
+            vaApp.init();
+            vaApp.render();
+        });
+    </script>
+</body>
+</html>
